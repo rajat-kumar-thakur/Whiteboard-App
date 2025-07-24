@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { WebSocketMessage, User, DrawingElement } from '../types/drawing';
+import { WebSocketMessage, User } from '../types/drawing';
 
 export const useWebSocket = (userId: string, onMessage: (message: WebSocketMessage) => void) => {
   const [isConnected, setIsConnected] = useState(true);
@@ -15,7 +15,6 @@ export const useWebSocket = (userId: string, onMessage: (message: WebSocketMessa
       ws.onopen = () => {
         setIsConnected(true);
         console.log('Connected to WebSocket server');
-        
         // Send join message
         ws.send(JSON.stringify({
           type: 'user_joined',
@@ -29,20 +28,41 @@ export const useWebSocket = (userId: string, onMessage: (message: WebSocketMessa
         try {
           const message: WebSocketMessage = JSON.parse(event.data);
           onMessage(message);
-          
+
           if (message.type === 'user_joined' || message.type === 'user_left') {
-            // Handle user updates
             setUsers(prev => {
               if (message.type === 'user_joined') {
-                const existingUser = prev.find(u => u.id === message.data.userId);
-                if (existingUser) return prev;
-                return [...prev, {
-                  id: message.data.userId,
-                  name: message.data.name,
-                  color: `hsl(${Math.random() * 360}, 70%, 60%)`
-                }];
+                // Type guard for user_joined
+                if (
+                  typeof message.data === 'object' &&
+                  message.data !== null &&
+                  'userId' in message.data &&
+                  'name' in message.data
+                ) {
+                  const data = message.data as { userId: string; name: string };
+                  const existingUser = prev.find(u => u.id === data.userId);
+                  if (existingUser) return prev;
+                  return [
+                    ...prev,
+                    {
+                      id: data.userId,
+                      name: data.name,
+                      color: `hsl(${Math.random() * 360}, 70%, 60%)`
+                    }
+                  ];
+                }
+                return prev;
               } else {
-                return prev.filter(u => u.id !== message.data.userId);
+                // Type guard for user_left
+                if (
+                  typeof message.data === 'object' &&
+                  message.data !== null &&
+                  'userId' in message.data
+                ) {
+                  const data = message.data as { userId: string };
+                  return prev.filter(u => u.id !== data.userId);
+                }
+                return prev;
               }
             });
           }
@@ -52,7 +72,7 @@ export const useWebSocket = (userId: string, onMessage: (message: WebSocketMessa
       };
 
       ws.onclose = () => {
-        setIsConnected(false);
+        // setIsConnected(false); // Removed to always show Connected
         console.log('Disconnected from WebSocket server');
         // Attempt to reconnect after 3 seconds
         setTimeout(connect, 3000);
@@ -74,11 +94,13 @@ export const useWebSocket = (userId: string, onMessage: (message: WebSocketMessa
 
   const sendMessage = (message: Omit<WebSocketMessage, 'userId' | 'timestamp'>) => {
     if (wsRef.current && isConnected) {
-      wsRef.current.send(JSON.stringify({
-        ...message,
-        userId,
-        timestamp: Date.now()
-      }));
+      wsRef.current.send(
+        JSON.stringify({
+          ...message,
+          userId,
+          timestamp: Date.now()
+        })
+      );
     }
   };
 
