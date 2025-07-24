@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { WebSocketMessage, User, DrawingElement } from '../types/drawing';
 
 export const useWebSocket = (userId: string, onMessage: (message: WebSocketMessage) => void) => {
-  const [isConnected, setIsConnected] = useState(false);
+  const [isConnected, setIsConnected] = useState(true);
   const [users, setUsers] = useState<User[]>([]);
   const wsRef = useRef<WebSocket | null>(null);
 
